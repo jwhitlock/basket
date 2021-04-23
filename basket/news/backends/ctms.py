@@ -205,7 +205,7 @@ class CTMSUnknownKeyError(CTMSError):
         return f"Unknown basket key {self.unknown_key!r}"
 
 
-def to_vendor(data):
+def to_vendor(data, default_lang=None, default_format=None):
     """
     Transform basket key-value data and convert to CTMS nested data
 
@@ -215,12 +215,18 @@ def to_vendor(data):
     * CTMS API handles boolean conversion
 
     @params data: basket data
+    @params default_lang: optional default language for new subscriptions
+    @params default_format: optional default format for new subscriptions
     @return: dict in CTMS format
     """
     ctms_data = {}
     amo_deleted = False
     newsletters = None
     newsletter_subscription_default = {}
+    if default_lang:
+        newsletter_subscription_default["lang"] = default_lang
+    if default_format:
+        newsletter_subscription_default["format"] = default_format
 
     for name, raw_value in data.items():
         # Pre-process raw_value, which may remove it.
@@ -715,8 +721,11 @@ class CTMS:
         if not email_id:
             # TODO: When CTMS is primary, this should be an error
             return None
+        default_lang = existing_data.get("lang", None)
+        default_format = existing_data.get("format", None)
         try:
-            return self.interface.patch_by_email_id(email_id, to_vendor(update_data))
+            ctms_data = to_vendor(update_data, default_lang, default_format)
+            return self.interface.patch_by_email_id(email_id, ctms_data)
         except Exception:
             sentry_sdk.capture_exception()
             return None
